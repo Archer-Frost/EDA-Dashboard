@@ -587,6 +587,40 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
         ts_alrl = _agg_ts(alrl_f, "ALRL_price")
         ts_iw   = _agg_ts(iw_f,   "IW_price")
 
+        def normalize_keys(df):
+    # Normalize column names
+            df = df.copy()
+            df.columns = df.columns.astype(str).str.strip().str.lower()
+        
+            # If keys are in the index, bring them back as columns
+            if "date" not in df.columns or "state" not in df.columns:
+                df = df.reset_index()
+        
+                # Re-normalize after reset_index (new columns may appear)
+                df.columns = df.columns.astype(str).str.strip().str.lower()
+        
+            return df
+
+        ts_alrl = normalize_keys(ts_alrl)
+        ts_iw   = normalize_keys(ts_iw)
+        
+        # Hard fail with clear diagnostics (so you know which one is missing what)
+        missing_alrl = {"date", "state"} - set(ts_alrl.columns)
+        missing_iw   = {"date", "state"} - set(ts_iw.columns)
+
+        if missing_alrl or missing_iw:
+            import streamlit as st
+            st.error(f"Missing keys. ts_alrl missing: {missing_alrl}, ts_iw missing: {missing_iw}")
+            st.write("ts_alrl columns:", list(ts_alrl.columns))
+            st.write("ts_iw columns:", list(ts_iw.columns))
+            st.stop()
+
+# Optional: ensure date types match
+        ts_alrl["date"] = pd.to_datetime(ts_alrl["date"], errors="coerce")
+        ts_iw["date"]   = pd.to_datetime(ts_iw["date"], errors="coerce")
+        
+        ts = pd.merge(ts_alrl, ts_iw, on=["date", "state"], how="outer")
+
         ts = pd.merge(ts_alrl, ts_iw, on=["date", "state"], how="outer")
 
         if ts.empty:
