@@ -517,54 +517,52 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
         )
 
         # --------------------------------
-        # Time Trends (controls on left)
+        # --------------------------------
+        # Time Trends (controls in sidebar)
         # --------------------------------
         st.subheader("Time trends")
         
-        # Create layout
-        controls_col_tt, charts_col_tt = st.columns([1, 3], gap="small")
+        # Sidebar controls (same level conceptually, but physically in sidebar)
+        st.sidebar.markdown("### Time trends controls")
         
-        with controls_col_tt:
+        min_date = min(common_months)
+        max_date = max(common_months)
         
-            min_date = min(common_months)
-            max_date = max(common_months)
+        start_date, end_date = st.sidebar.slider(
+            "Time range",
+            min_value=min_date.to_pydatetime(),
+            max_value=max_date.to_pydatetime(),
+            value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
+            format="YYYY-MM",
+            key="tt_timerange_sidebar"
+        )
         
-            start_date, end_date = st.slider(
-                "Time range",
-                min_value=min_date.to_pydatetime(),
-                max_value=max_date.to_pydatetime(),
-                value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
-                format="YYYY-MM",
-                key="statewise_timerange"
-            )
+        items_sel = st.sidebar.multiselect(
+            "Select tobacco items",
+            options=items_common,
+            default=["cigarette"] if "cigarette" in items_common else items_common[:1],
+            key="tt_items_sidebar"
+        )
         
-            items_sel = st.multiselect(
-                "Select tobacco items",
-                options=items_common,
-                default=["cigarette"] if "cigarette" in items_common else items_common[:1],
-                key="time_items_sel"
-            )
+        normalize = st.sidebar.checkbox(
+            "Normalize by unit (price per unit)",
+            value=True,
+            key="tt_normalize_sidebar"
+        )
         
-            normalize = st.checkbox(
-                "Normalize by unit (price per unit)",
-                value=True,
-                key="normalize_price_per_unit"
-            )
+        states_alrl = sorted(alrl_f["state"].dropna().unique().tolist())
+        states_iw   = sorted(iw_f["state"].dropna().unique().tolist())
+        states_common = sorted(list(set(states_alrl).intersection(set(states_iw))))
+        states_widget = states_common if states_common else sorted(list(set(states_alrl).union(set(states_iw))))
         
-            states_alrl = sorted(alrl_f["state"].dropna().unique().tolist())
-            states_iw   = sorted(iw_f["state"].dropna().unique().tolist())
-            states_common = sorted(list(set(states_alrl).intersection(set(states_iw))))
-            states_widget = states_common if states_common else sorted(list(set(states_alrl).union(set(states_iw))))
+        default_states = states_common[:min(8, len(states_common))] if states_common else states_widget[:min(8, len(states_widget))]
         
-            default_states = states_common[:min(8, len(states_common))] if states_common else states_widget[:min(8, len(states_widget))]
-        
-            states_sel = st.multiselect(
-                "Select states",
-                options=states_widget,
-                default=default_states,
-                key="statewise_states_sel"
-            )
-        
+        states_sel = st.sidebar.multiselect(
+            "Select states",
+            options=states_widget,
+            default=default_states,
+            key="tt_states_sidebar"
+        )
         
         def _agg_ts_item(df: pd.DataFrame, value_col_name: str) -> pd.DataFrame:
             d = df[
@@ -577,6 +575,7 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
             if d.empty:
                 return pd.DataFrame(columns=["date", "state", "item", value_col_name])
         
+            # value to aggregate
             if normalize:
                 d["value"] = d["price"] / d["unit"]
             else:
@@ -589,7 +588,6 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
         
             return g.rename(columns={"value": value_col_name})
         
-        
         def _plot_ts(df_long: pd.DataFrame, title: str, value_col: str):
             st.caption(title)
         
@@ -599,25 +597,21 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
         
             df_long = df_long.copy()
             df_long["series"] = df_long["state"] + " | " + df_long["item"]
-        
             wide = df_long.pivot(index="date", columns="series", values=value_col).sort_index()
             st.line_chart(wide)
         
-        
-        # Build datasets
+        # Build + plot
         ts_alrl = _agg_ts_item(alrl_f, "ALRL_value")
         ts_iw   = _agg_ts_item(iw_f,   "IW_value")
         
+        _plot_ts(
+            ts_alrl,
+            title=("AL/RL (villages) — " + ("Price per unit" if normalize else "Price")),
+            value_col="ALRL_value"
+        )
         
-        with charts_col_tt:
-            _plot_ts(
-                ts_alrl,
-                title=("AL/RL (villages) — " + ("Price per unit" if normalize else "Price")),
-                value_col="ALRL_value"
-            )
-        
-            _plot_ts(
-                ts_iw,
-                title=("IW (centres) — " + ("Price per unit" if normalize else "Price")),
-                value_col="IW_value"
-            )
+        _plot_ts(
+            ts_iw,
+            title=("IW (centres) — " + ("Price per unit" if normalize else "Price")),
+            value_col="IW_value"
+        )
