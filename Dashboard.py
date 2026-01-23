@@ -518,7 +518,7 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
             st.bar_chart(level_plot)
 
         # Table
-        st.subheader("State details table (snapshot)")
+        st.write("State details table (snapshot)")
         st.dataframe(
             merged.sort_values(rank_basis, ascending=False).reset_index(drop=True),
             use_container_width=True
