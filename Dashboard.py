@@ -516,71 +516,108 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
             use_container_width=True
         )
 
-        # -------------------------
-        # Time Trends (always shown)
-        # -------------------------
+        # --------------------------------
+        # Time Trends (controls on left)
+        # --------------------------------
         st.subheader("Time trends")
-
-        min_date = min(common_months)
-        max_date = max(common_months)
         
-        start_date, end_date = st.slider(
-            "Time range",
-            min_value=min_date.to_pydatetime(),
-            max_value=max_date.to_pydatetime(),
-            value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
-            format="YYYY-MM",
-            key="statewise_timerange"
-        )
+        # Create layout
+        controls_col_tt, charts_col_tt = st.columns([1, 3], gap="large")
         
-        # IMPORTANT: build states from ALRL and IW separately
-        states_alrl = sorted(alrl_f["state"].dropna().unique().tolist())
-        states_iw   = sorted(iw_f["state"].dropna().unique().tolist())
+        with controls_col_tt:
         
-        # Use common states by default (so BOTH charts have data)
-        states_common = sorted(list(set(states_alrl).intersection(set(states_iw))))
-        states_widget = states_common if states_common else sorted(list(set(states_alrl).union(set(states_iw))))
+            min_date = min(common_months)
+            max_date = max(common_months)
         
-        default_states = states_common[:min(8, len(states_common))] if states_common else states_widget[:min(8, len(states_widget))]
+            start_date, end_date = st.slider(
+                "Time range",
+                min_value=min_date.to_pydatetime(),
+                max_value=max_date.to_pydatetime(),
+                value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
+                format="YYYY-MM",
+                key="statewise_timerange"
+            )
         
-        states_sel = st.multiselect(
-            "Select states",
-            states_widget,
-            default=default_states,
-            key="statewise_states_sel"
-        )
+            items_sel = st.multiselect(
+                "Select tobacco items",
+                options=items_common,
+                default=["cigarette"] if "cigarette" in items_common else items_common[:1],
+                key="time_items_sel"
+            )
         
-        def _agg_ts(df, label):
+            normalize = st.checkbox(
+                "Normalize by unit (price per unit)",
+                value=True,
+                key="normalize_price_per_unit"
+            )
+        
+            states_alrl = sorted(alrl_f["state"].dropna().unique().tolist())
+            states_iw   = sorted(iw_f["state"].dropna().unique().tolist())
+            states_common = sorted(list(set(states_alrl).intersection(set(states_iw))))
+            states_widget = states_common if states_common else sorted(list(set(states_alrl).union(set(states_iw))))
+        
+            default_states = states_common[:min(8, len(states_common))] if states_common else states_widget[:min(8, len(states_widget))]
+        
+            states_sel = st.multiselect(
+                "Select states",
+                options=states_widget,
+                default=default_states,
+                key="statewise_states_sel"
+            )
+        
+        
+        def _agg_ts_item(df: pd.DataFrame, value_col_name: str) -> pd.DataFrame:
             d = df[
                 (df["date"] >= pd.to_datetime(start_date)) &
                 (df["date"] <= pd.to_datetime(end_date)) &
-                (df["state"].isin(states_sel))
+                (df["state"].isin(states_sel)) &
+                (df["item"].isin(items_sel))
             ].copy()
         
             if d.empty:
-                return pd.DataFrame(columns=["date", "state", label])
+                return pd.DataFrame(columns=["date", "state", "item", value_col_name])
+        
+            if normalize:
+                d["value"] = d["price"] / d["unit"]
+            else:
+                d["value"] = d["price"]
         
             if agg_sel == "Median":
-                g = d.groupby(["date", "state"], as_index=False)["price"].median()
+                g = d.groupby(["date", "state", "item"], as_index=False)["value"].median()
             else:
-                g = d.groupby(["date", "state"], as_index=False)["price"].mean()
+                g = d.groupby(["date", "state", "item"], as_index=False)["value"].mean()
         
-            return g.rename(columns={"price": label})
+            return g.rename(columns={"value": value_col_name})
         
-        ts_alrl = _agg_ts(alrl_f, "ALRL_price")
-        ts_iw   = _agg_ts(iw_f,   "IW_price")
         
-        # Plot ALRL only if it actually has values
-        st.caption("AL/RL (villages)")
-        if ts_alrl.empty or ts_alrl["ALRL_price"].isna().all():
-            st.warning("No AL/RL village quotes for the selected states in this time range (under the current item + unit filter).")
-        else:
-            st.line_chart(ts_alrl.pivot(index="date", columns="state", values="ALRL_price"))
+        def _plot_ts(df_long: pd.DataFrame, title: str, value_col: str):
+            st.caption(title)
         
-        # Plot IW only if it actually has values
-        st.caption("IW (centres)")
-        if ts_iw.empty or ts_iw["IW_price"].isna().all():
-            st.warning("No IW centre quotes for the selected states in this time range (under the current item + unit filter).")
-        else:
-            st.line_chart(ts_iw.pivot(index="date", columns="state", values="IW_price"))
-            
+            if df_long.empty or df_long[value_col].isna().all():
+                st.warning("No data for selected filters.")
+                return
+        
+            df_long = df_long.copy()
+            df_long["series"] = df_long["state"] + " | " + df_long["item"]
+        
+            wide = df_long.pivot(index="date", columns="series", values=value_col).sort_index()
+            st.line_chart(wide)
+        
+        
+        # Build datasets
+        ts_alrl = _agg_ts_item(alrl_f, "ALRL_value")
+        ts_iw   = _agg_ts_item(iw_f,   "IW_value")
+        
+        
+        with charts_col_tt:
+            _plot_ts(
+                ts_alrl,
+                title=("AL/RL (villages) — " + ("Price per unit" if normalize else "Price")),
+                value_col="ALRL_value"
+            )
+        
+            _plot_ts(
+                ts_iw,
+                title=("IW (centres) — " + ("Price per unit" if normalize else "Price")),
+                value_col="IW_value"
+            )
