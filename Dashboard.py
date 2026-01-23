@@ -382,24 +382,6 @@ This structure allows us to assess whether tobacco prices have risen faster than
     """)
 #TAB 2================================================================================================================================
 with tab2:
-    st.subheader("About state coverage and missing values")
-    st.markdown("""
-The state-wise analysis presented here is based on retail price quotes collected under CPI-AL/RL (village-level) and CPI-IW (centre-level) datasets. It is important to note the following:
-
-- Incomplete State Coverage:
-  Not all states report price quotations for every product, unit, and month. As a result, the number of states shown in the ranking    table may vary across selections.
-
-- Unit-Specific Reporting:
-Certain products are quoted only in specific units (e.g., bidis typically in bundles of 25, cigarettes often in packs of 10 or 20). When a particular unit is selected, only states reporting that exact unit are included.
-
-- Overlap Requirement Between CPI Series:
-For comparability, the dashboard displays only those months where both CPI-AL/RL and CPI-IW report data for the selected product and unit. This may reduce the number of available states in some periods.
-
-- Missing or Invalid Quotes:
-Observations with missing or non-numeric price values are excluded from aggregation. Therefore, state counts reflect valid price entries only.
-
-Consequently, the “Top N States” slider represents an upper bound. If fewer states are available for the selected filters, the table will display only the states for which valid data exists.
-""")
     st.subheader("State-wise Comparison (Retail Price Quotes: CPI-AL/RL villages vs CPI-IW centres)")
 
     # ---- Prep (robust cleaning) ----
@@ -643,3 +625,22 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
             st.warning("No IW data for the selected filters.")
         else:
             st.line_chart(iw_wide, use_container_width=True)
+
+    st.subheader("About state coverage and missing values")
+    st.markdown("""
+    The state-wise analysis presented here is based on retail price quotes collected under CPI-AL/RL (village-level) and CPI-IW (centre-level) datasets. It is important to note the following:
+    
+    - Incomplete State Coverage:
+      Not all states report price quotations for every product, unit, and month. As a result, the number of states shown in the ranking    table may vary across selections.
+    
+    - Unit-Specific Reporting:
+    Certain products are quoted only in specific units (e.g., bidis typically in bundles of 25, cigarettes often in packs of 10 or 20). When a particular unit is selected, only states reporting that exact unit are included.
+    
+    - Overlap Requirement Between CPI Series:
+    For comparability, the dashboard displays only those months where both CPI-AL/RL and CPI-IW report data for the selected product and unit. This may reduce the number of available states in some periods.
+    
+    - Missing or Invalid Quotes:
+    Observations with missing or non-numeric price values are excluded from aggregation. Therefore, state counts reflect valid price entries only.
+    
+    Consequently, the “Top N States” slider represents an upper bound. If fewer states are available for the selected filters, the table will display only the states for which valid data exists.
+    """)
