@@ -377,7 +377,7 @@ This structure allows us to assess whether tobacco prices have risen faster than
     Structural breaks in the series—visible as sudden upward jumps—are frequently associated with Union Budget announcements, excise duty hikes, or broader tax regime transitions.
 
     Differences across population groups may reflect variation in retail pricing structures, distribution costs, and urban–rural market dynamics. Over time, these price differentials may narrow or widen depending on tax harmonization, market integration, and inflationary pressures.
-    By enabling comparison across products and population segments, this tab allows users to assess whether cigarette inflation has outpaced bidi inflation, whether price shocks align with known policy events, and whether price growth is sustained in real terms or primarily nominal. 
+    By enabling comparison across products and population segments, this tab allows one to assess whether cigarette inflation has outpaced bidi inflation, whether price shocks align with known policy events, and whether price growth is sustained in real terms or primarily nominal. 
     Overall, the national price trends provide a foundation for understanding affordability dynamics, tax pass-through, and the broader economic and policy environment shaping tobacco markets in India.
     """)
 #TAB 2================================================================================================================================
