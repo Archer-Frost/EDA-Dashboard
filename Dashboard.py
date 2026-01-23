@@ -519,68 +519,67 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
         # --------------------------------
         # Time Trends (improved: item control)
         # --------------------------------
+        # =====================================================
+        # TIME TRENDS SECTION (COPY-PASTE THIS ENTIRE BLOCK)
+        # ====================================================
         st.subheader("Time trends")
+
+        tt_min = min(common_months)
+        tt_max = max(common_months)
         
-        # Time range slider (same as you have)
-        min_date = min(common_months)
-        max_date = max(common_months)
-        
-        start_date, end_date = st.slider(
+        tt_start, tt_end = st.slider(
             "Time range",
-            min_value=min_date.to_pydatetime(),
-            max_value=max_date.to_pydatetime(),
-            value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
+            min_value=tt_min.to_pydatetime(),
+            max_value=tt_max.to_pydatetime(),
+            value=(tt_min.to_pydatetime(), tt_max.to_pydatetime()),
             format="YYYY-MM",
-            key="statewise_timerange"
+            key="tt_timerange_main"
         )
         
-        # ---- NEW: item selection widget (bidi/cigarette) ----
-        # items_common already exists in your code (intersection ALRL & IW)
-        items_sel = st.multiselect(
-            "Select tobacco items",
+        tt_items = st.multiselect(
+            "Select tobacco item(s)",
             options=items_common,
             default=["cigarette"] if "cigarette" in items_common else items_common[:1],
-            key="time_items_sel"
+            key="tt_items_main"
         )
         
-        # ---- NEW: normalization option (important if multiple units exist) ----
-        normalize = st.checkbox(
-            "Normalize by unit (plot price per unit)",
+        tt_normalize = st.checkbox(
+            "Normalize by unit (price per unit)",
             value=True,
-            key="normalize_price_per_unit"
+            key="tt_normalize_main"
         )
         
-        # State selector (use your existing approach; this is a safe default)
-        states_alrl = sorted(alrl_f["state"].dropna().unique().tolist())
-        states_iw   = sorted(iw_f["state"].dropna().unique().tolist())
-        states_common = sorted(list(set(states_alrl).intersection(set(states_iw))))
-        states_widget = states_common if states_common else sorted(list(set(states_alrl).union(set(states_iw))))
+        # Build state list from selected items
+        alrl_states = set(alrl_p.loc[alrl_p["item"].isin(tt_items), "state"].dropna().unique())
+        iw_states   = set(iw_p.loc[iw_p["item"].isin(tt_items), "state"].dropna().unique())
         
-        default_states = states_common[:min(8, len(states_common))] if states_common else states_widget[:min(8, len(states_widget))]
+        states_common_tt = sorted(list(alrl_states.intersection(iw_states)))
+        states_all_tt = sorted(list(alrl_states.union(iw_states)))
         
-        states_sel = st.multiselect(
+        state_options_tt = states_common_tt if states_common_tt else states_all_tt
+        default_states_tt = state_options_tt[:8] if len(state_options_tt) >= 8 else state_options_tt
+        
+        tt_states = st.multiselect(
             "Select states",
-            options=states_widget,
-            default=default_states,
-            key="statewise_states_sel"
+            options=state_options_tt,
+            default=default_states_tt,
+            key="tt_states_main"
         )
         
-        def _agg_ts_item(df: pd.DataFrame, value_col_name: str) -> pd.DataFrame:
-            """
-            Returns long DF: date, state, item, value_col_name
-            """
+        # ---------- Aggregation Function ----------
+        
+        def _tt_aggregate(df, label):
             d = df[
-                (df["date"] >= pd.to_datetime(start_date)) &
-                (df["date"] <= pd.to_datetime(end_date)) &
-                (df["state"].isin(states_sel)) &
-                (df["item"].isin(items_sel))
+                (df["date"] >= pd.to_datetime(tt_start)) &
+                (df["date"] <= pd.to_datetime(tt_end)) &
+                (df["item"].isin(tt_items)) &
+                (df["state"].isin(tt_states))
             ].copy()
         
             if d.empty:
-                return pd.DataFrame(columns=["date", "state", "item", value_col_name])
+                return pd.DataFrame(columns=["date", "state", "item", label])
         
-            # choose value: raw price OR price per unit
-            if normalize:
+            if tt_normalize:
                 d["value"] = d["price"] / d["unit"]
             else:
                 d["value"] = d["price"]
@@ -590,34 +589,38 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
             else:
                 g = d.groupby(["date", "state", "item"], as_index=False)["value"].mean()
         
-            return g.rename(columns={"value": value_col_name})
+            return g.rename(columns={"value": label})
         
-        def _plot_ts(df_long: pd.DataFrame, title: str, value_col: str):
+        # ---------- Plot Function ----------
+        
+        def _tt_plot(df_long, value_col, title):
             st.caption(title)
         
             if df_long.empty or df_long[value_col].isna().all():
-                st.warning("No time-series data for selected states/items in this range.")
+                st.warning("No data for selected filters.")
                 return
         
-            # label columns as "STATE | ITEM"
             df_long = df_long.copy()
             df_long["series"] = df_long["state"] + " | " + df_long["item"]
         
             wide = df_long.pivot(index="date", columns="series", values=value_col).sort_index()
             st.line_chart(wide)
         
-        # Build and plot separately for ALRL and IW
-        ts_alrl = _agg_ts_item(alrl_f, "ALRL_value")
-        ts_iw   = _agg_ts_item(iw_f,   "IW_value")
+        # ---------- Build Datasets ----------
         
-        _plot_ts(
-            ts_alrl,
-            title=("AL/RL (villages) — " + ("Price per unit" if normalize else "Price")),
-            value_col="ALRL_value"
+        tt_alrl = _tt_aggregate(alrl_p, "ALRL_value")
+        tt_iw   = _tt_aggregate(iw_p, "IW_value")
+        
+        # ---------- Render Graphs ----------
+        
+        _tt_plot(
+            tt_alrl,
+            "ALRL_value",
+            f"AL/RL (villages) — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
         )
         
-        _plot_ts(
-            ts_iw,
-            title=("IW (centres) — " + ("Price per unit" if normalize else "Price")),
-            value_col="IW_value"
+        _tt_plot(
+            tt_iw,
+            "IW_value",
+            f"IW (centres) — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
         )
