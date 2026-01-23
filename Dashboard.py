@@ -442,8 +442,7 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
 
     with controls_col:
         item_sel = st.selectbox("Product (item)", items_common)
-
-        agg_sel = st.selectbox("Aggregation across quotes", ["Median", "Mean"])
+        agg_sel = st.selectbox("Aggregation across states", ["Median", "Mean"])
         top_n = st.slider("Show top N States", 5, 30, 15)
 
     # ---- Filter ----
@@ -475,7 +474,6 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
             options=month_labels,
             index=len(month_labels) - 1
         )
-
         snap_date = month_map[snap_label]
 
     # ---- Snapshot aggregation ----
