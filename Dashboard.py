@@ -522,7 +522,7 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
         st.subheader("Time trends")
         
         # Create layout
-        controls_col_tt, charts_col_tt = st.columns([1, 3], gap="large")
+        controls_col_tt, charts_col_tt = st.columns([1, 3], gap="small")
         
         with controls_col_tt:
         
