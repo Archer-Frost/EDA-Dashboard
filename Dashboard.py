@@ -518,115 +518,121 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
         #
         # ==========================================================
 # ===================== TIME TRENDS ========================
-# ==========================================================
+        # ==========================================================
+        st.markdown("---")
         st.subheader("Time trends")
         
-        controls_col_tt, viz_col_tt = st.columns([1, 3], gap="small")
+        # IMPORTANT: make the left column wider than before (prevents squished widgets)
+        tt_controls_col, tt_viz_col = st.columns([1.35, 3], gap="large")
         
-        # ----------------------------------------------------------
-        # LEFT SIDE — CONTROLS
-        # ----------------------------------------------------------
+        with tt_controls_col:
+            # Ensure labels are visible (do NOT set label_visibility="collapsed")
+            # Time range
+            tt_min = min(common_months)
+            tt_max = max(common_months)
         
-        with controls_col_tt:
-        
-            # ----- Time range -----
-            min_date = min(common_months)
-            max_date = max(common_months)
-        
-            start_date, end_date = st.slider(
+            tt_start, tt_end = st.slider(
                 "Time range",
-                min_value=min_date.to_pydatetime(),
-                max_value=max_date.to_pydatetime(),
-                value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
+                min_value=tt_min.to_pydatetime(),
+                max_value=tt_max.to_pydatetime(),
+                value=(tt_min.to_pydatetime(), tt_max.to_pydatetime()),
                 format="YYYY-MM",
                 key="tt_timerange"
             )
         
-            # ----- Item selection -----
-            items_sel = st.multiselect(
+            # Items (bidi / cigarette etc.)
+            tt_items = st.multiselect(
                 "Select tobacco item(s)",
-                items_common,
-                default=[items_common[0]],
+                options=items_common,
+                default=(["cigarette"] if "cigarette" in items_common else items_common[:1]),
                 key="tt_items"
             )
         
-            # ----- Normalize option -----
-            normalize = st.checkbox(
+            tt_normalize = st.checkbox(
                 "Normalize by unit (price per unit)",
                 value=True,
-                key="tt_norm"
+                key="tt_normalize"
             )
         
-            # ----- State selection -----
-            states_alrl = sorted(alrl_f["state"].dropna().unique())
-            states_iw = sorted(iw_f["state"].dropna().unique())
-            states_common = sorted(list(set(states_alrl).intersection(states_iw)))
+            # Build state options robustly and keep them nicely titled
+            # Use filtered frames if you have them; otherwise fall back to alrl_p/iw_p
+            _alrl_src = alrl_f if "alrl_f" in globals() else alrl_p
+            _iw_src   = iw_f   if "iw_f"   in globals() else iw_p
         
-            states_sel = st.multiselect(
+            # States that actually have data for the selected items
+            alrl_states = set(_alrl_src.loc[_alrl_src["item"].isin(tt_items), "state"].dropna().unique())
+            iw_states   = set(_iw_src.loc[_iw_src["item"].isin(tt_items), "state"].dropna().unique())
+        
+            states_common = sorted(list(alrl_states.intersection(iw_states)))
+            states_all    = sorted(list(alrl_states.union(iw_states)))
+            state_options = states_common if states_common else states_all
+        
+            # Defaults: pick 6 (not too many), and prefer common states so both charts show
+            default_states = state_options[:min(6, len(state_options))]
+        
+            tt_states = st.multiselect(
                 "Select states",
-                states_common,
-                default=states_common[:5],
+                options=state_options,
+                default=default_states,
                 key="tt_states"
             )
         
-        
-        # ----------------------------------------------------------
-        # RIGHT SIDE — GRAPHS
-        # ----------------------------------------------------------
-        
-        with viz_col_tt:
-        
-            def _build_ts(df, label):
+        with tt_viz_col:
+            # Helper: aggregate and pivot into wide format for st.line_chart
+            def _tt_build(df: pd.DataFrame, out_col: str) -> pd.DataFrame:
                 d = df[
-                    (df["item"].isin(items_sel)) &
-                    (df["state"].isin(states_sel)) &
-                    (df["date"] >= pd.to_datetime(start_date)) &
-                    (df["date"] <= pd.to_datetime(end_date))
+                    (df["date"] >= pd.to_datetime(tt_start)) &
+                    (df["date"] <= pd.to_datetime(tt_end)) &
+                    (df["item"].isin(tt_items)) &
+                    (df["state"].isin(tt_states))
                 ].copy()
         
                 if d.empty:
                     return pd.DataFrame()
         
-                if normalize:
-                    d["value"] = d["price"] / d["unit"]
+                # numeric safety
+                d["price"] = pd.to_numeric(d["price"], errors="coerce")
+                d["unit"]  = pd.to_numeric(d["unit"], errors="coerce")
+        
+                if tt_normalize:
+                    d["val"] = d["price"] / d["unit"]
                 else:
-                    d["value"] = d["price"]
+                    d["val"] = d["price"]
+        
+                # drop unusable rows (prevents weird null-only charts)
+                d = d.dropna(subset=["date", "state", "item", "val"])
+        
+                if d.empty:
+                    return pd.DataFrame()
         
                 if agg_sel == "Median":
-                    g = d.groupby(["date", "state", "item"], as_index=False)["value"].median()
+                    g = d.groupby(["date", "state", "item"], as_index=False)["val"].median()
                 else:
-                    g = d.groupby(["date", "state", "item"], as_index=False)["value"].mean()
+                    g = d.groupby(["date", "state", "item"], as_index=False)["val"].mean()
         
                 g["series"] = g["state"] + " | " + g["item"]
+                wide = g.pivot(index="date", columns="series", values="val").sort_index()
+                return wide
         
-                return g.pivot(index="date", columns="series", values="value")
+            # Use same sources as controls
+            _alrl_plot_src = _alrl_src
+            _iw_plot_src   = _iw_src
         
+            alrl_wide = _tt_build(_alrl_plot_src, "ALRL")
+            iw_wide   = _tt_build(_iw_plot_src,   "IW")
         
-            # ----- AL/RL -----
             st.markdown(
-                f"**AL/RL (villages)** — "
-                f"{'Price per unit' if normalize else 'Price'} "
-                f"({agg_sel})"
+                f"**AL/RL (villages)** — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
             )
-        
-            alrl_ts = _build_ts(alrl_f, "ALRL")
-        
-            if alrl_ts.empty:
-                st.warning("No AL/RL data for selected filters.")
+            if alrl_wide.empty:
+                st.warning("No AL/RL data for the selected filters.")
             else:
-                st.line_chart(alrl_ts, use_container_width=True)
+                st.line_chart(alrl_wide, use_container_width=True)
         
-        
-            # ----- IW -----
             st.markdown(
-                f"**IW (centres)** — "
-                f"{'Price per unit' if normalize else 'Price'} "
-                f"({agg_sel})"
+                f"**IW (centres)** — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
             )
-        
-            iw_ts = _build_ts(iw_f, "IW")
-        
-            if iw_ts.empty:
-                st.warning("No IW data for selected filters.")
+            if iw_wide.empty:
+                st.warning("No IW data for the selected filters.")
             else:
-                st.line_chart(iw_ts, use_container_width=True)
+                st.line_chart(iw_wide, use_container_width=True)
