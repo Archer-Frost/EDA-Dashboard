@@ -655,3 +655,28 @@ with tab2:
     
     Consequently, the “Top N States” slider represents an upper bound. If fewer states are available for the selected filters, the table will display only the states for which valid data exists.
     """)
+
+with tab3:
+    st.markdown("""
+    This dashboard provides an integrated view of tobacco price dynamics in India by combining national monthly price series with detailed state-level retail quotations from CPI-AL/RL (village centres) and 
+    CPI-IW (industrial/urban centres). Together, these components allow analysis across time, geography, and population groups, enabling a structured examination of both price levels and inflationary movement in tobacco products.
+
+    The National Price Trends section highlights the persistent upward trajectory of tobacco prices over the sample period. Cigarette prices display sharper, step-like increases relative to bidis, 
+    indicating periods of accelerated inflation likely associated with tax revisions and policy changes. In contrast, bidi prices tend to rise more gradually, reflecting structural differences in taxation, 
+    production organization, and market positioning. When viewed dynamically, the national series clearly demonstrate that tobacco price inflation has not been smooth; rather, it has occurred in phases, with identifiable episodes of accelerated growth.
+    
+    The Statewise Comparison tab further reveals that inflationary pressures are not transmitted uniformly across India. Retail prices differ materially across states, and both the level and pace of increase vary over time. 
+    Urban centre quotations (CPI-IW) often show more abrupt adjustments, while rural quotations (CPI-AL/RL) may exhibit smoother transitions. The rural–urban gap fluctuates across periods, suggesting variation in tax pass-through, 
+    distribution costs, and retail markups. These differences imply that inflation in tobacco prices, while national in direction, manifests with regional heterogeneity.
+    
+    Taken together, the national and state-level evidence indicates that tobacco price inflation in India reflects a combination of general macroeconomic inflation, 
+    targeted fiscal policy interventions, and localized market structures. While the aggregate national series captures the overall direction and intensity of inflation, 
+    the statewise data reveal dispersion, convergence, and differential adjustment speeds across regions and population groups.
+    
+    Importantly, the retail quotation data include varying coverage across states, months, and product units. As such, observed trends reflect available reported prices rather than imputed values. Where normalization by unit is 
+    applied, cross-state and inter-product comparisons become more economically meaningful, particularly in the presence of multiple pack sizes.
+    
+    Overall, the dashboard demonstrates that tobacco pricing in India is shaped by sustained inflationary forces alongside episodic policy-driven shocks. National aggregates establish the macro-level pattern of inflation, 
+    while state-level comparisons illuminate the uneven and region-specific transmission of these price changes. The interactive structure of the dashboard enables systematic exploration of affordability dynamics, tax pass-through, 
+    and spatial variation in tobacco inflation across the country.
+    """)
