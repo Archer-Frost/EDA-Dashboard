@@ -517,13 +517,12 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
         )
         #
         # ==========================================================
-# ===================== TIME TRENDS ========================
+        # ===================== TIME TRENDS ========================
         # ==========================================================
-        st.markdown("---")
-        st.subheader("Time trends")
+        st.subheader("Monthly trends across states")
         
         # IMPORTANT: make the left column wider than before (prevents squished widgets)
-        tt_controls_col, tt_viz_col = st.columns([1, 3], gap="small")
+        tt_controls_col, tt_viz_col = st.columns([1, 5], gap="small")
         
         with tt_controls_col:
             # Ensure labels are visible (do NOT set label_visibility="collapsed")
