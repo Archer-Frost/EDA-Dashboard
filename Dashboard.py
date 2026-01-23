@@ -382,6 +382,17 @@ This structure allows us to assess whether tobacco prices have risen faster than
     """)
 #TAB 2================================================================================================================================
 with tab2:
+    st.markdown("""
+    This section presents the evolution of tobacco prices at the All-India level using monthly retail price data. The series capture average quoted retail prices across different population segments and product categories, allowing users to track how tobacco prices have evolved over time. 
+    The interactive chart enables selection of population group, product type, and multiple series simultaneously for comparison, making it possible to observe both long-run trends and short-term movements in prices.
+
+    Across the sample period, tobacco prices exhibit a clear upward trajectory, reflecting general inflation, periodic tax revisions, changes in excise structures, and broader regulatory shifts. Cigarette prices typically display sharper, step-like increases, often corresponding to tax changes or policy interventions, 
+    while bidi prices tend to rise more gradually, consistent with their lower base price levels and historically lighter tax burden. Structural breaks in the series—visible as sudden upward jumps—are frequently associated with Union Budget announcements, excise duty hikes, or broader tax regime transitions.
+
+    Differences across population groups may reflect variation in retail pricing structures, distribution costs, and urban–rural market dynamics. Over time, these price differentials may narrow or widen depending on tax harmonization, market integration, and inflationary pressures. 
+    By enabling comparison across products and population segments, this tab allows users to assess whether cigarette inflation has outpaced bidi inflation, whether price shocks align with known policy events, and whether price growth is sustained in real terms or primarily nominal. Overall, 
+    the national price trends provide a foundation for understanding affordability dynamics, tax pass-through, and the broader economic and policy environment shaping tobacco markets in India.
+    """)
     st.subheader("State-wise Comparison (Retail Price Quotes: CPI-AL/RL villages vs CPI-IW centres)")
 
     # ---- Prep (robust cleaning) ----
