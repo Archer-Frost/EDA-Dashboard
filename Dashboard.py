@@ -443,26 +443,13 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
     with controls_col:
         item_sel = st.selectbox("Product (item)", items_common)
 
-        # Item-specific common units
-        alrl_units = sorted(alrl_p.loc[alrl_p["item"] == item_sel, "unit"].dropna().unique())
-        iw_units   = sorted(iw_p.loc[iw_p["item"] == item_sel, "unit"].dropna().unique())
-        common_units = sorted(list(set(alrl_units).intersection(set(iw_units))))
-
-        if not common_units:
-            st.warning("No common units for this item across AL/RL and IW.")
-            st.stop()
-
-        default_unit = 25.0 if 25.0 in common_units else common_units[0]
-        unit_sel = st.selectbox("Unit", common_units, index=common_units.index(default_unit))
-
         agg_sel = st.selectbox("Aggregation across quotes", ["Median", "Mean"])
         top_n = st.slider("Show top N States", 5, 30, 15)
 
     # ---- Filter ----
     def _filter(df):
         return df[
-            (df["item"] == item_sel) &
-            (df["unit"] == float(unit_sel))
+            (df["item"] == item_sel)
         ].dropna(subset=["state", "date", "price"])
 
     alrl_f = _filter(alrl_p)
@@ -516,7 +503,7 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
     with viz_col:
         st.markdown(
             f"**Snapshot:** {pd.to_datetime(snap_date).strftime('%Y-%m')} | "
-            f"**Item:** {item_sel} | **Unit:** {int(unit_sel)} | **Agg:** {agg_sel}"
+            f"**Item:** {item_sel} | **Agg:** {agg_sel}"
         )
 
         # Level comparison
@@ -598,3 +585,4 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
             st.warning("No IW centre quotes for the selected states in this time range (under the current item + unit filter).")
         else:
             st.line_chart(ts_iw.pivot(index="date", columns="state", values="IW_price"))
+            
