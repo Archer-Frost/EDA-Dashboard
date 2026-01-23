@@ -515,112 +515,114 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
             merged.sort_values(rank_basis, ascending=False).reset_index(drop=True),
             use_container_width=True
         )
-
-        # --------------------------------
-        # Time Trends (improved: item control)
-        # --------------------------------
-        # =====================================================
-        # TIME TRENDS SECTION (COPY-PASTE THIS ENTIRE BLOCK)
-        # ====================================================
+        
         st.subheader("Time trends")
-
-        tt_min = min(common_months)
-        tt_max = max(common_months)
         
-        tt_start, tt_end = st.slider(
-            "Time range",
-            min_value=tt_min.to_pydatetime(),
-            max_value=tt_max.to_pydatetime(),
-            value=(tt_min.to_pydatetime(), tt_max.to_pydatetime()),
-            format="YYYY-MM",
-            key="tt_timerange_main"
-        )
+        # Create same layout structure as snapshot
+        tt_controls_col, tt_viz_col = st.columns([1, 3], gap="small")
         
-        tt_items = st.multiselect(
-            "Select tobacco item(s)",
-            options=items_common,
-            default=["cigarette"] if "cigarette" in items_common else items_common[:1],
-            key="tt_items_main"
-        )
+        # =========================
+        # LEFT SIDE — CONTROLS
+        # =========================
+        with tt_controls_col:
         
-        tt_normalize = st.checkbox(
-            "Normalize by unit (price per unit)",
-            value=True,
-            key="tt_normalize_main"
-        )
+            tt_min = min(common_months)
+            tt_max = max(common_months)
         
-        # Build state list from selected items
-        alrl_states = set(alrl_p.loc[alrl_p["item"].isin(tt_items), "state"].dropna().unique())
-        iw_states   = set(iw_p.loc[iw_p["item"].isin(tt_items), "state"].dropna().unique())
+            tt_start, tt_end = st.slider(
+                "Time range",
+                min_value=tt_min.to_pydatetime(),
+                max_value=tt_max.to_pydatetime(),
+                value=(tt_min.to_pydatetime(), tt_max.to_pydatetime()),
+                format="YYYY-MM",
+                key="tt_timerange_layout"
+            )
         
-        states_common_tt = sorted(list(alrl_states.intersection(iw_states)))
-        states_all_tt = sorted(list(alrl_states.union(iw_states)))
+            tt_items = st.multiselect(
+                "Select tobacco item(s)",
+                options=items_common,
+                default=["cigarette"] if "cigarette" in items_common else items_common[:1],
+                key="tt_items_layout"
+            )
         
-        state_options_tt = states_common_tt if states_common_tt else states_all_tt
-        default_states_tt = state_options_tt[:8] if len(state_options_tt) >= 8 else state_options_tt
+            tt_normalize = st.checkbox(
+                "Normalize by unit (price per unit)",
+                value=True,
+                key="tt_normalize_layout"
+            )
         
-        tt_states = st.multiselect(
-            "Select states",
-            options=state_options_tt,
-            default=default_states_tt,
-            key="tt_states_main"
-        )
+            # State selector based on selected items
+            alrl_states = set(alrl_p.loc[alrl_p["item"].isin(tt_items), "state"].dropna().unique())
+            iw_states   = set(iw_p.loc[iw_p["item"].isin(tt_items), "state"].dropna().unique())
         
-        # ---------- Aggregation Function ----------
+            states_common_tt = sorted(list(alrl_states.intersection(iw_states)))
+            states_all_tt = sorted(list(alrl_states.union(iw_states)))
         
-        def _tt_aggregate(df, label):
-            d = df[
-                (df["date"] >= pd.to_datetime(tt_start)) &
-                (df["date"] <= pd.to_datetime(tt_end)) &
-                (df["item"].isin(tt_items)) &
-                (df["state"].isin(tt_states))
-            ].copy()
+            state_options_tt = states_common_tt if states_common_tt else states_all_tt
+            default_states_tt = state_options_tt[:8] if len(state_options_tt) >= 8 else state_options_tt
         
-            if d.empty:
-                return pd.DataFrame(columns=["date", "state", "item", label])
+            tt_states = st.multiselect(
+                "Select states",
+                options=state_options_tt,
+                default=default_states_tt,
+                key="tt_states_layout"
+            )
         
-            if tt_normalize:
-                d["value"] = d["price"] / d["unit"]
-            else:
-                d["value"] = d["price"]
         
-            if agg_sel == "Median":
-                g = d.groupby(["date", "state", "item"], as_index=False)["value"].median()
-            else:
-                g = d.groupby(["date", "state", "item"], as_index=False)["value"].mean()
+        # =========================
+        # RIGHT SIDE — GRAPHS
+        # =========================
+        with tt_viz_col:
         
-            return g.rename(columns={"value": label})
+            def _tt_aggregate(df, label):
+                d = df[
+                    (df["date"] >= pd.to_datetime(tt_start)) &
+                    (df["date"] <= pd.to_datetime(tt_end)) &
+                    (df["item"].isin(tt_items)) &
+                    (df["state"].isin(tt_states))
+                ].copy()
         
-        # ---------- Plot Function ----------
+                if d.empty:
+                    return pd.DataFrame(columns=["date", "state", "item", label])
         
-        def _tt_plot(df_long, value_col, title):
-            st.caption(title)
+                if tt_normalize:
+                    d["value"] = d["price"] / d["unit"]
+                else:
+                    d["value"] = d["price"]
         
-            if df_long.empty or df_long[value_col].isna().all():
-                st.warning("No data for selected filters.")
-                return
+                if agg_sel == "Median":
+                    g = d.groupby(["date", "state", "item"], as_index=False)["value"].median()
+                else:
+                    g = d.groupby(["date", "state", "item"], as_index=False)["value"].mean()
         
-            df_long = df_long.copy()
-            df_long["series"] = df_long["state"] + " | " + df_long["item"]
+                return g.rename(columns={"value": label})
         
-            wide = df_long.pivot(index="date", columns="series", values=value_col).sort_index()
-            st.line_chart(wide)
         
-        # ---------- Build Datasets ----------
+            def _tt_plot(df_long, value_col, title):
+                st.caption(title)
         
-        tt_alrl = _tt_aggregate(alrl_p, "ALRL_value")
-        tt_iw   = _tt_aggregate(iw_p, "IW_value")
+                if df_long.empty or df_long[value_col].isna().all():
+                    st.warning("No data for selected filters.")
+                    return
         
-        # ---------- Render Graphs ----------
+                df_long = df_long.copy()
+                df_long["series"] = df_long["state"] + " | " + df_long["item"]
         
-        _tt_plot(
-            tt_alrl,
-            "ALRL_value",
-            f"AL/RL (villages) — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
-        )
+                wide = df_long.pivot(index="date", columns="series", values=value_col).sort_index()
+                st.line_chart(wide)
         
-        _tt_plot(
-            tt_iw,
-            "IW_value",
-            f"IW (centres) — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
-        )
+        
+            tt_alrl = _tt_aggregate(alrl_p, "ALRL_value")
+            tt_iw   = _tt_aggregate(iw_p, "IW_value")
+        
+            _tt_plot(
+                tt_alrl,
+                "ALRL_value",
+                f"AL/RL (villages) — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
+            )
+        
+            _tt_plot(
+                tt_iw,
+                "IW_value",
+                f"IW (centres) — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
+            )
