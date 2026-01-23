@@ -40,7 +40,7 @@ tab0, tab1, tab2, tab3 = st.tabs([
     "Introduction",
     "National Price Trends",
     "Statewise Comparison",
-    "Interpretation"
+    "Conclusion"
 ])
 
 #TAB 0================================================================================================================================
