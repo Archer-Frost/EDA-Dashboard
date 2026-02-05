@@ -40,7 +40,7 @@ tab0, tab1, tab2, tab3 = st.tabs([
     "Introduction",
     "National Price Trends",
     "Statewise Comparison",
-    "Interpretation"
+    "Conclusion"
 ])
 
 #TAB 0================================================================================================================================
@@ -371,27 +371,28 @@ This structure allows us to assess whether tobacco prices have risen faster than
                 plot_df = plot_df.set_index("date")
         
                 st.line_chart(plot_df)
+    st.markdown("""
+    Across the sample period, tobacco prices exhibit a clear upward trajectory, reflecting general inflation, periodic tax revisions, changes in excise structures, and broader regulatory shifts. 
+    Cigarette prices typically display sharper, step-like increases, often corresponding to tax changes or policy interventions, while bidi prices tend to rise more gradually, consistent with their lower base price levels and historically lighter tax burden. 
+    Structural breaks in the series—visible as sudden upward jumps—are frequently associated with Union Budget announcements, excise duty hikes, or broader tax regime transitions.
 
+    Differences across population groups may reflect variation in retail pricing structures, distribution costs, and urban–rural market dynamics. Over time, these price differentials may narrow or widen depending on tax harmonization, market integration, and inflationary pressures.
+    By enabling comparison across products and population segments, this tab allows one to assess whether cigarette inflation has outpaced bidi inflation, whether price shocks align with known policy events, and whether price growth is sustained in real terms or primarily nominal. 
+    Overall, the national price trends provide a foundation for understanding affordability dynamics, tax pass-through, and the broader economic and policy environment shaping tobacco markets in India.
+    """)
 #TAB 2================================================================================================================================
 with tab2:
-    st.subheader("About state coverage and missing values")
     st.markdown("""
-The state-wise analysis presented here is based on retail price quotes collected under CPI-AL/RL (village-level) and CPI-IW (centre-level) datasets. It is important to note the following:
+    This section presents the evolution of tobacco prices at the All-India level using monthly retail price data. The series capture average quoted retail prices across different population segments and product categories, allowing users to track how tobacco prices have evolved over time. 
+    The interactive chart enables selection of population group, product type, and multiple series simultaneously for comparison, making it possible to observe both long-run trends and short-term movements in prices.
 
-- Incomplete State Coverage:
-  Not all states report price quotations for every product, unit, and month. As a result, the number of states shown in the ranking    table may vary across selections.
+    Across the sample period, tobacco prices exhibit a clear upward trajectory, reflecting general inflation, periodic tax revisions, changes in excise structures, and broader regulatory shifts. Cigarette prices typically display sharper, step-like increases, often corresponding to tax changes or policy interventions, 
+    while bidi prices tend to rise more gradually, consistent with their lower base price levels and historically lighter tax burden. Structural breaks in the series—visible as sudden upward jumps—are frequently associated with Union Budget announcements, excise duty hikes, or broader tax regime transitions.
 
-- Unit-Specific Reporting:
-Certain products are quoted only in specific units (e.g., bidis typically in bundles of 25, cigarettes often in packs of 10 or 20). When a particular unit is selected, only states reporting that exact unit are included.
-
-- Overlap Requirement Between CPI Series:
-For comparability, the dashboard displays only those months where both CPI-AL/RL and CPI-IW report data for the selected product and unit. This may reduce the number of available states in some periods.
-
-- Missing or Invalid Quotes:
-Observations with missing or non-numeric price values are excluded from aggregation. Therefore, state counts reflect valid price entries only.
-
-Consequently, the “Top N States” slider represents an upper bound. If fewer states are available for the selected filters, the table will display only the states for which valid data exists.
-""")
+    Differences across population groups may reflect variation in retail pricing structures, distribution costs, and urban–rural market dynamics. Over time, these price differentials may narrow or widen depending on tax harmonization, market integration, and inflationary pressures. 
+    By enabling comparison across products and population segments, this tab allows users to assess whether cigarette inflation has outpaced bidi inflation, whether price shocks align with known policy events, and whether price growth is sustained in real terms or primarily nominal. Overall, 
+    the national price trends provide a foundation for understanding affordability dynamics, tax pass-through, and the broader economic and policy environment shaping tobacco markets in India.
+    """)
     st.subheader("State-wise Comparison (Retail Price Quotes: CPI-AL/RL villages vs CPI-IW centres)")
 
     # ---- Prep (robust cleaning) ----
@@ -510,114 +511,169 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
             st.bar_chart(level_plot)
 
         # Table
-        st.subheader("State details table (snapshot)")
+        st.write("State details table (snapshot)")
         st.dataframe(
             merged.sort_values(rank_basis, ascending=False).reset_index(drop=True),
             use_container_width=True
         )
-
-        # --------------------------------
-        # Time Trends (improved: item control)
-        # --------------------------------
-        st.subheader("Time trends")
+        #
+        # ==========================================================
+        # ===================== TIME TRENDS ========================
+        # ==========================================================
+    st.subheader("Monthly trends across states")
         
-        # Time range slider (same as you have)
-        min_date = min(common_months)
-        max_date = max(common_months)
+        # IMPORTANT: make the left column wider than before (prevents squished widgets)
+    tt_controls_col, tt_viz_col = st.columns([1.3, 3], gap="small")
         
-        start_date, end_date = st.slider(
+    with tt_controls_col:
+            # Ensure labels are visible (do NOT set label_visibility="collapsed")
+            # Time range
+        tt_min = min(common_months)
+        tt_max = max(common_months)
+        
+        tt_start, tt_end = st.slider(
             "Time range",
-            min_value=min_date.to_pydatetime(),
-            max_value=max_date.to_pydatetime(),
-            value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
+            min_value=tt_min.to_pydatetime(),
+            max_value=tt_max.to_pydatetime(),
+            value=(tt_min.to_pydatetime(), tt_max.to_pydatetime()),
             format="YYYY-MM",
-            key="statewise_timerange"
+            key="tt_timerange"
         )
         
-        # ---- NEW: item selection widget (bidi/cigarette) ----
-        # items_common already exists in your code (intersection ALRL & IW)
-        items_sel = st.multiselect(
-            "Select tobacco items",
+            # Items (bidi / cigarette etc.)
+        tt_items = st.multiselect(
+            "Select tobacco item(s)",
             options=items_common,
-            default=["cigarette"] if "cigarette" in items_common else items_common[:1],
-            key="time_items_sel"
+            default=(["cigarette"] if "cigarette" in items_common else items_common[:1]),
+            key="tt_items"
         )
         
-        # ---- NEW: normalization option (important if multiple units exist) ----
-        normalize = st.checkbox(
-            "Normalize by unit (plot price per unit)",
+        tt_normalize = st.checkbox(
+            "Normalize by unit (price per unit)",
             value=True,
-            key="normalize_price_per_unit"
+            key="tt_normalize"
         )
         
-        # State selector (use your existing approach; this is a safe default)
-        states_alrl = sorted(alrl_f["state"].dropna().unique().tolist())
-        states_iw   = sorted(iw_f["state"].dropna().unique().tolist())
-        states_common = sorted(list(set(states_alrl).intersection(set(states_iw))))
-        states_widget = states_common if states_common else sorted(list(set(states_alrl).union(set(states_iw))))
+        # Build state options robustly and keep them nicely titled
+        # Use filtered frames if you have them; otherwise fall back to alrl_p/iw_p
+        _alrl_src = alrl_f if "alrl_f" in globals() else alrl_p
+        _iw_src   = iw_f   if "iw_f"   in globals() else iw_p
         
-        default_states = states_common[:min(8, len(states_common))] if states_common else states_widget[:min(8, len(states_widget))]
+        # States that actually have data for the selected items
+        alrl_states = set(_alrl_src.loc[_alrl_src["item"].isin(tt_items), "state"].dropna().unique())
+        iw_states   = set(_iw_src.loc[_iw_src["item"].isin(tt_items), "state"].dropna().unique())
         
-        states_sel = st.multiselect(
+        states_common = sorted(list(alrl_states.intersection(iw_states)))
+        states_all    = sorted(list(alrl_states.union(iw_states)))
+        state_options = states_common if states_common else states_all
+        
+        # Defaults: pick 6 (not too many), and prefer common states so both charts show
+        default_states = state_options[:min(6, len(state_options))]
+        
+        tt_states = st.multiselect(
             "Select states",
-            options=states_widget,
+            options=state_options,
             default=default_states,
-            key="statewise_states_sel"
+            key="tt_states"
         )
         
-        def _agg_ts_item(df: pd.DataFrame, value_col_name: str) -> pd.DataFrame:
-            """
-            Returns long DF: date, state, item, value_col_name
-            """
+    with tt_viz_col:
+        # Helper: aggregate and pivot into wide format for st.line_chart
+        def _tt_build(df: pd.DataFrame, out_col: str) -> pd.DataFrame:
             d = df[
-                (df["date"] >= pd.to_datetime(start_date)) &
-                (df["date"] <= pd.to_datetime(end_date)) &
-                (df["state"].isin(states_sel)) &
-                (df["item"].isin(items_sel))
+                (df["date"] >= pd.to_datetime(tt_start)) &
+                (df["date"] <= pd.to_datetime(tt_end)) &
+                (df["item"].isin(tt_items)) &
+                (df["state"].isin(tt_states))
             ].copy()
         
             if d.empty:
-                return pd.DataFrame(columns=["date", "state", "item", value_col_name])
+                return pd.DataFrame()
         
-            # choose value: raw price OR price per unit
-            if normalize:
-                d["value"] = d["price"] / d["unit"]
+                # numeric safety
+            d["price"] = pd.to_numeric(d["price"], errors="coerce")
+            d["unit"]  = pd.to_numeric(d["unit"], errors="coerce")
+        
+            if tt_normalize:
+                d["val"] = d["price"] / d["unit"]
             else:
-                d["value"] = d["price"]
+                d["val"] = d["price"]
+        
+                # drop unusable rows (prevents weird null-only charts)
+            d = d.dropna(subset=["date", "state", "item", "val"])
+        
+            if d.empty:
+                return pd.DataFrame()
         
             if agg_sel == "Median":
-                g = d.groupby(["date", "state", "item"], as_index=False)["value"].median()
+                g = d.groupby(["date", "state", "item"], as_index=False)["val"].median()
             else:
-                g = d.groupby(["date", "state", "item"], as_index=False)["value"].mean()
+                g = d.groupby(["date", "state", "item"], as_index=False)["val"].mean()
         
-            return g.rename(columns={"value": value_col_name})
+            g["series"] = g["state"] + " | " + g["item"]
+            wide = g.pivot(index="date", columns="series", values="val").sort_index()
+            return wide
         
-        def _plot_ts(df_long: pd.DataFrame, title: str, value_col: str):
-            st.caption(title)
+        # Use same sources as controls
+        _alrl_plot_src = _alrl_src
+        _iw_plot_src   = _iw_src
         
-            if df_long.empty or df_long[value_col].isna().all():
-                st.warning("No time-series data for selected states/items in this range.")
-                return
+        alrl_wide = _tt_build(_alrl_plot_src, "ALRL")
+        iw_wide   = _tt_build(_iw_plot_src,   "IW")
         
-            # label columns as "STATE | ITEM"
-            df_long = df_long.copy()
-            df_long["series"] = df_long["state"] + " | " + df_long["item"]
-        
-            wide = df_long.pivot(index="date", columns="series", values=value_col).sort_index()
-            st.line_chart(wide)
-        
-        # Build and plot separately for ALRL and IW
-        ts_alrl = _agg_ts_item(alrl_f, "ALRL_value")
-        ts_iw   = _agg_ts_item(iw_f,   "IW_value")
-        
-        _plot_ts(
-            ts_alrl,
-            title=("AL/RL (villages) — " + ("Price per unit" if normalize else "Price")),
-            value_col="ALRL_value"
+        st.markdown(
+            f"**AL/RL (villages)** — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
         )
+        if alrl_wide.empty:
+            st.warning("No AL/RL data for the selected filters.")
+        else:
+            st.line_chart(alrl_wide, use_container_width=True)
         
-        _plot_ts(
-            ts_iw,
-            title=("IW (centres) — " + ("Price per unit" if normalize else "Price")),
-            value_col="IW_value"
+        st.markdown(
+            f"**IW (centres)** — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
         )
+        if iw_wide.empty:
+            st.warning("No IW data for the selected filters.")
+        else:
+            st.line_chart(iw_wide, use_container_width=True)
+
+    st.subheader("About state coverage and missing values")
+    st.markdown("""
+    The state-wise analysis presented here is based on retail price quotes collected under CPI-AL/RL (village-level) and CPI-IW (centre-level) datasets. It is important to note the following:
+    
+    - Incomplete State Coverage:
+      Not all states report price quotations for every product, unit, and month. As a result, the number of states shown in the ranking    table may vary across selections.
+    
+    - Overlap Requirement Between CPI Series:
+    For comparability, the dashboard displays only those months where both CPI-AL/RL and CPI-IW report data for the selected product and unit. This may reduce the number of available states in some periods.
+    
+    - Missing or Invalid Quotes:
+    Observations with missing or non-numeric price values are excluded from aggregation. Therefore, state counts reflect valid price entries only.
+    
+    Consequently, the “Top N States” slider represents an upper bound. If fewer states are available for the selected filters, the table will display only the states for which valid data exists.
+    """)
+
+with tab3:
+    st.markdown("""
+    This dashboard provides an integrated view of tobacco price dynamics in India by combining national monthly price series with detailed state-level retail quotations from CPI-AL/RL (village centres) and 
+    CPI-IW (industrial/urban centres). Together, these components allow analysis across time, geography, and population groups, enabling a structured examination of both price levels and inflationary movement in tobacco products.
+
+    The National Price Trends section highlights the persistent upward trajectory of tobacco prices over the sample period. Cigarette prices display sharper, step-like increases relative to bidis, 
+    indicating periods of accelerated inflation likely associated with tax revisions and policy changes. In contrast, bidi prices tend to rise more gradually, reflecting structural differences in taxation, 
+    production organization, and market positioning. When viewed dynamically, the national series clearly demonstrate that tobacco price inflation has not been smooth; rather, it has occurred in phases, with identifiable episodes of accelerated growth.
+    
+    The Statewise Comparison tab further reveals that inflationary pressures are not transmitted uniformly across India. Retail prices differ materially across states, and both the level and pace of increase vary over time. 
+    Urban centre quotations (CPI-IW) often show more abrupt adjustments, while rural quotations (CPI-AL/RL) may exhibit smoother transitions. The rural–urban gap fluctuates across periods, suggesting variation in tax pass-through, 
+    distribution costs, and retail markups. These differences imply that inflation in tobacco prices, while national in direction, manifests with regional heterogeneity.
+    
+    Taken together, the national and state-level evidence indicates that tobacco price inflation in India reflects a combination of general macroeconomic inflation, 
+    targeted fiscal policy interventions, and localized market structures. While the aggregate national series captures the overall direction and intensity of inflation, 
+    the statewise data reveal dispersion, convergence, and differential adjustment speeds across regions and population groups.
+    
+    Importantly, the retail quotation data include varying coverage across states, months, and product units. As such, observed trends reflect available reported prices rather than imputed values. Where normalization by unit is 
+    applied, cross-state and inter-product comparisons become more economically meaningful, particularly in the presence of multiple pack sizes.
+    
+    Overall, the dashboard demonstrates that tobacco pricing in India is shaped by sustained inflationary forces alongside episodic policy-driven shocks. National aggregates establish the macro-level pattern of inflation, 
+    while state-level comparisons illuminate the uneven and region-specific transmission of these price changes. The interactive structure of the dashboard enables systematic exploration of affordability dynamics, tax pass-through, 
+    and spatial variation in tobacco inflation across the country.
+    """)
