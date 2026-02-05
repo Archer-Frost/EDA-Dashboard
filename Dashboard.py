@@ -644,9 +644,6 @@ with tab2:
     - Incomplete State Coverage:
       Not all states report price quotations for every product, unit, and month. As a result, the number of states shown in the ranking    table may vary across selections.
     
-    - Unit-Specific Reporting:
-    Certain products are quoted only in specific units (e.g., bidis typically in bundles of 25, cigarettes often in packs of 10 or 20). When a particular unit is selected, only states reporting that exact unit are included.
-    
     - Overlap Requirement Between CPI Series:
     For comparability, the dashboard displays only those months where both CPI-AL/RL and CPI-IW report data for the selected product and unit. This may reduce the number of available states in some periods.
     
