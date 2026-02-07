@@ -464,17 +464,52 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
         st.stop()
 
     with controls_col:
-        month_labels = [d.strftime("%Y-%m") for d in common_months]
-
-        # Map label back to datetime
-        month_map = dict(zip(month_labels, common_months))
+        st.markdown("---")
+        st.markdown("### Time trends controls")
         
-        snap_label = st.selectbox(
-            "Snapshot month",
-            options=month_labels,
-            index=len(month_labels) - 1
+        # Time range (for trends)
+        tt_min_date = min(common_months)
+        tt_max_date = max(common_months)
+        
+        tt_start, tt_end = st.slider(
+            "Time range (trends)",
+            min_value=tt_min_date.to_pydatetime(),
+            max_value=tt_max_date.to_pydatetime(),
+            value=(tt_min_date.to_pydatetime(), tt_max_date.to_pydatetime()),
+            format="YYYY-MM",
+            key="tt_timerange"
         )
-        snap_date = month_map[snap_label]
+        
+        # Item selector (bidi/cigarette)
+        tt_items = st.multiselect(
+            "Items (trends)",
+            options=items_common,
+            default=(["cigarette"] if "cigarette" in items_common else items_common[:1]),
+            key="tt_items"
+        )
+        
+        # Normalize (strongly recommended if multiple units exist)
+        tt_normalize = st.checkbox(
+            "Normalize by unit (price per unit)",
+            value=True,
+            key="tt_normalize"
+        )
+        
+        # States selector (based on data available for selected items)
+        _alrl_states_tt = set(alrl_p.loc[alrl_p["item"].isin(tt_items), "state"].dropna().unique())
+        _iw_states_tt   = set(iw_p.loc[iw_p["item"].isin(tt_items), "state"].dropna().unique())
+        _tt_states_common = sorted(list(_alrl_states_tt.intersection(_iw_states_tt)))
+        _tt_states_all = sorted(list(_alrl_states_tt.union(_iw_states_tt)))
+        
+        tt_states_options = _tt_states_common if _tt_states_common else _tt_states_all
+        tt_default_states = (tt_states_options[:8] if len(tt_states_options) >= 8 else tt_states_options)
+        
+        tt_states = st.multiselect(
+            "States (trends)",
+            options=tt_states_options,
+            default=tt_default_states,
+            key="tt_states"
+        )
 
     # ---- Snapshot aggregation ----
     def _agg_snapshot(df, label):
@@ -516,71 +551,66 @@ Consequently, the “Top N States” slider represents an upper bound. If fewer 
             use_container_width=True
         )
 
-        # -------------------------
-        # Time Trends (always shown)
-        # -------------------------
+        # --------------------------------
+        # --------------------------------
+        # Time Trends (controls in sidebar)
+        # --------------------------------
         st.subheader("Time trends")
-
-        min_date = min(common_months)
-        max_date = max(common_months)
         
-        start_date, end_date = st.slider(
-            "Time range",
-            min_value=min_date.to_pydatetime(),
-            max_value=max_date.to_pydatetime(),
-            value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
-            format="YYYY-MM",
-            key="statewise_timerange"
-        )
-        
-        # IMPORTANT: build states from ALRL and IW separately
-        states_alrl = sorted(alrl_f["state"].dropna().unique().tolist())
-        states_iw   = sorted(iw_f["state"].dropna().unique().tolist())
-        
-        # Use common states by default (so BOTH charts have data)
-        states_common = sorted(list(set(states_alrl).intersection(set(states_iw))))
-        states_widget = states_common if states_common else sorted(list(set(states_alrl).union(set(states_iw))))
-        
-        default_states = states_common[:min(8, len(states_common))] if states_common else states_widget[:min(8, len(states_widget))]
-        
-        states_sel = st.multiselect(
-            "Select states",
-            states_widget,
-            default=default_states,
-            key="statewise_states_sel"
-        )
-        
-        def _agg_ts(df, label):
+        def _tt_agg(df: pd.DataFrame, label: str) -> pd.DataFrame:
             d = df[
-                (df["date"] >= pd.to_datetime(start_date)) &
-                (df["date"] <= pd.to_datetime(end_date)) &
-                (df["state"].isin(states_sel))
+                (df["date"] >= pd.to_datetime(tt_start)) &
+                (df["date"] <= pd.to_datetime(tt_end)) &
+                (df["item"].isin(tt_items)) &
+                (df["state"].isin(tt_states))
             ].copy()
         
             if d.empty:
-                return pd.DataFrame(columns=["date", "state", label])
+                return pd.DataFrame(columns=["date", "state", "item", label])
+        
+            if tt_normalize:
+                d["val"] = d["price"] / d["unit"]
+            else:
+                d["val"] = d["price"]
         
             if agg_sel == "Median":
-                g = d.groupby(["date", "state"], as_index=False)["price"].median()
+                g = d.groupby(["date", "state", "item"], as_index=False)["val"].median()
             else:
-                g = d.groupby(["date", "state"], as_index=False)["price"].mean()
+                g = d.groupby(["date", "state", "item"], as_index=False)["val"].mean()
         
-            return g.rename(columns={"price": label})
+            return g.rename(columns={"val": label})
         
-        ts_alrl = _agg_ts(alrl_f, "ALRL_price")
-        ts_iw   = _agg_ts(iw_f,   "IW_price")
         
-        # Plot ALRL only if it actually has values
-        st.caption("AL/RL (villages)")
-        if ts_alrl.empty or ts_alrl["ALRL_price"].isna().all():
-            st.warning("No AL/RL village quotes for the selected states in this time range (under the current item + unit filter).")
-        else:
-            st.line_chart(ts_alrl.pivot(index="date", columns="state", values="ALRL_price"))
+        def _tt_plot(long_df: pd.DataFrame, label: str, caption: str):
+            st.caption(caption)
         
-        # Plot IW only if it actually has values
-        st.caption("IW (centres)")
-        if ts_iw.empty or ts_iw["IW_price"].isna().all():
-            st.warning("No IW centre quotes for the selected states in this time range (under the current item + unit filter).")
-        else:
-            st.line_chart(ts_iw.pivot(index="date", columns="state", values="IW_price"))
-            
+            if long_df.empty or long_df[label].isna().all():
+                st.warning("No data for the selected trend filters.")
+                return
+        
+            tmp = long_df.copy()
+            tmp["series"] = tmp["state"] + " | " + tmp["item"]
+            wide = tmp.pivot(index="date", columns="series", values=label).sort_index()
+            st.line_chart(wide)
+        
+        
+        tt_alrl = _tt_agg(alrl_p, "ALRL_val")
+        tt_iw   = _tt_agg(iw_p,   "IW_val")
+        
+        _tt_plot(
+            tt_alrl,
+            "ALRL_val",
+            f"AL/RL (villages) — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
+        )
+        
+        _tt_plot(
+            tt_iw,
+            "IW_val",
+            f"IW (centres) — {'Price per unit' if tt_normalize else 'Price'} ({agg_sel})"
+        )
+        
+        
+        
+        
+        
+        
